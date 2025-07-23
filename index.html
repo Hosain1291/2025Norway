@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2025 • Norway Election Simulator</title>
+
+  <!-- Tailwind (utility) & Google Font for a clean, bold look -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ===== Global Font ===== */
+    html { font-family: 'Poppins', sans-serif; }
+
+    /* ===== Frosted‑glass background image (inspired by the sample) ===== */
+    .background-image-blur {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background-image: url('https://images.unsplash.com/photo-1526481280691-22d218e6e0bc?auto=format&fit=crop&w=1800&q=80'); /* Norwegian fjord placeholder */
+      background-size: cover;
+      background-position: center;
+      filter: blur(18px) brightness(0.65);
+    }
+
+    /* Optional: glassy content wrapper shadow */
+    .glass-card {
+      backdrop-filter: saturate(180%) blur(10px);
+      background-color: rgba(255,255,255,0.72);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 overflow-x-hidden">
+
+  <!-- 📷 Blurred background -->
+  <div class="background-image-blur"></div>
+
+  <!-- 🧊 Frosted content shell -->
+  <div class="glass-card rounded-2xl shadow-xl mx-auto my-8 p-6 sm:p-10 max-w-7xl space-y-10">
+    <!-- ▸ Title -->
+    <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-center tracking-tight text-gray-900">2025&nbsp;•&nbsp;Norway</h1>
+
+    <!-- ▸ Vote Input Cards -->
+    <div id="vote-cards" class="grid gap-3 sm:gap-4 md:gap-5 lg:gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"></div>
+
+    <!-- ▸ Calculate Button -->
+    <div class="text-center">
+      <button id="calcBtn" class="mt-6 px-8 sm:px-10 py-3 sm:py-4 rounded-full font-semibold shadow-lg bg-blue-600 text-white disabled:opacity-40 transition disabled:cursor-not-allowed" disabled>
+        의석 예측
+      </button>
+    </div>
+
+    <!-- ▸ Results (hidden by default) -->
+    <div id="results" class="hidden space-y-6">
+      <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800">Seat Projection</h2>
+      <div id="seat-cards" class="grid gap-3 sm:gap-4 md:gap-5 lg:gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"></div>
+      <div id="seat-bar" class="flex h-6 sm:h-8 lg:h-10 rounded-full overflow-hidden shadow-inner bg-gray-200"></div>
+    </div>
+
+    <!-- ▸ Helper Text -->
+    <p id="totalText" class="text-center text-sm sm:text-base text-gray-700">현재 총 득표율: 0%</p>
+  </div>
+
+  <!-- =================== JS =================== -->
+  <script>
+    const TOTAL_SEATS = 169;
+
+    const parties = [
+      { id: "R",   label: "R",   color: "#E31C23" },
+      { id: "SV",  label: "SV",  color: "#B66AF0" },
+      { id: "MDG", label: "MDG", color: "#6BA644" },
+      { id: "Ap",  label: "Ap",  color: "#C51D34" },
+      { id: "Sp",  label: "Sp",  color: "#007C5C" },
+      { id: "V",   label: "V",   color: "#009066" },
+      { id: "KrF", label: "KrF", color: "#FFEB3B" },
+      { id: "H",   label: "H",   color: "#0079CF" },
+      { id: "FrP", label: "FrP", color: "#0053A6" },
+      { id: "INP", label: "INP", color: "#2AC6E1" }
+    ];
+
+    const votes = Array(parties.length).fill(0);
+
+    // Build vote input cards
+    const voteCardsEl = document.getElementById('vote-cards');
+    parties.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'rounded-2xl p-4 sm:p-5 shadow-md flex flex-col items-center';
+      card.style.background = p.color;
+      card.innerHTML = `
+        <span class="font-bold text-lg sm:text-xl text-white drop-shadow-md">${p.label}</span>
+        <input type="number" class="w-full sm:w-24 mt-3 text-center font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-white text-gray-900" min="0" max="100" step="0.1" value="0" />
+        <span class="text-sm sm:text-base mt-2 text-white/80">%</span>`;
+      const input = card.querySelector('input');
+      input.addEventListener('input', (e) => {
+        const v = Math.max(0, Math.min(100, Number(e.target.value)));
+        votes[i] = v;
+        updateTotal();
+      });
+      voteCardsEl.appendChild(card);
+    });
+
+    function updateTotal() {
+      const total = votes.reduce((a, b) => a + b, 0);
+      document.getElementById('totalText').textContent = `현재 총 득표율: ${total.toFixed(1)}%`;
+      document.getElementById('calcBtn').disabled = total === 0;
+    }
+
+    // Sainte‑Lagüe allocation without threshold
+    function allocateSeats(votesArr) {
+      const quotients = [];
+      votesArr.forEach((v, idx) => {
+        for (let d = 1; d <= TOTAL_SEATS * 2; d += 2) {
+          quotients.push({ party: idx, value: v / d });
+        }
+      });
+      quotients.sort((a, b) => b.value - a.value);
+      const seats = Array(votesArr.length).fill(0);
+      for (let i = 0; i < TOTAL_SEATS; i++) {
+        seats[quotients[i].party]++;
+      }
+      return seats;
+    }
+
+    document.getElementById('calcBtn').addEventListener('click', () => {
+      const seatCounts = allocateSeats(votes);
+
+      // Seat cards
+      const seatCardsEl = document.getElementById('seat-cards');
+      seatCardsEl.innerHTML = '';
+      seatCounts.forEach((s, i) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-2xl p-4 sm:p-5 shadow-md flex flex-col items-center';
+        card.style.background = parties[i].color;
+        card.innerHTML = `
+          <span class="font-bold text-lg sm:text-xl text-white drop-shadow-md">${parties[i].label}</span>
+          <span class="text-4xl sm:text-5xl font-extrabold text-white drop-shadow">${s}</span>`;
+        seatCardsEl.appendChild(card);
+      });
+
+      // Seat bar
+      const seatBarEl = document.getElementById('seat-bar');
+      seatBarEl.innerHTML = '';
+      seatCounts.forEach((s, i) => {
+        if (s === 0) return; // skip zero‑seat segments for cleanliness
+        const seg = document.createElement('div');
+        seg.style.width = (s / TOTAL_SEATS) * 100 + '%';
+        seg.style.background = parties[i].color;
+        seatBarEl.appendChild(seg);
+      });
+
+      document.getElementById('results').classList.remove('hidden');
+      document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    updateTotal(); // Initial call
+  </script>
+</body>
+</html>
